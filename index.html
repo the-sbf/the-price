@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Price</title>
+<style>
+:root{
+  --counter:#16181c; --raised:#23262c; --edge:#3a3f47; --slate:#2b2f36; --paper:#eef0ea; --ink:#1b1d20; --faint:#6d727a;
+  --ui:#dfe2e6; --muted:#98a0aa; --stamp:#c3271d;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--counter);color:var(--ui);font-family:var(--mono);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+#app{height:100%;max-width:540px;margin:0 auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.strip{display:flex;justify-content:space-between;gap:10px;font-size:12px;letter-spacing:.1em;color:var(--muted);border-bottom:1px dashed var(--edge);padding-bottom:6px}
+.top h1{font-size:16px;line-height:1.35;margin:0;font-weight:700;outline:none}
+.mid{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:10px;padding:2px}
+.mid p{margin:0;font-size:14px}
+.mid p.small,.bot p.small{color:var(--muted);font-size:12px}
+.bot{display:flex;flex-direction:column;gap:8px}
+.bot p{margin:0;font-size:13px;color:var(--muted)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ui);outline-offset:2px}
+.go{background:var(--paper);color:var(--ink);border:0;border-radius:6px;padding:11px 14px;font-weight:700;width:100%}
+.go[disabled]{opacity:.4;cursor:default}
+.key{background:var(--raised);border:1px solid var(--edge);border-radius:6px;padding:10px 12px;text-align:left;width:100%}
+.key:hover{border-color:var(--ui)}
+
+/* chalkboard */
+.board{background:var(--slate);border:2px dashed var(--muted);border-radius:4px;padding:10px 12px;text-align:center;flex:none}
+.board .what{font-size:12px;letter-spacing:.14em;color:var(--muted)}
+.board .price{font-size:30px;font-weight:700;line-height:1.15;color:var(--paper)}
+.board .also{font-size:12px;color:var(--muted)}
+.prices{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:none}
+.prices button{background:var(--raised);border:1px solid var(--edge);border-radius:6px;padding:10px 0;font-weight:700}
+.prices button:hover{border-color:var(--ui)}
+
+/* queue */
+.ticket{background:var(--raised);border-left:3px solid var(--edge);padding:7px 10px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:start;flex:none;animation:feed .25s ease-out}
+.ticket .who{font-weight:700}
+.ticket .about{color:var(--muted);font-size:12px;font-weight:400}
+.ticket .tag{font-size:11px;letter-spacing:.08em;border:1px solid var(--edge);border-radius:3px;padding:1px 6px;white-space:nowrap;align-self:start}
+.ticket.buys{border-left-color:var(--paper)}
+.ticket.buys .tag{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.ticket .say{grid-column:1 / -1;font-size:14px}
+.ticket .say.act{color:var(--muted);font-style:italic}
+.count{font-size:14px;border:1px solid var(--edge);border-radius:6px;padding:8px 10px;flex:none}
+.count b{font-size:16px}
+
+/* offers */
+.offer .who{font-weight:700}
+.offer .about{color:var(--muted);font-size:12px}
+.offer .pitch{margin-top:4px;font-size:14px}
+.detail{background:var(--raised);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px}
+
+/* slip */
+.slot{height:6px;border-radius:3px;background:#0b0c0e;box-shadow:inset 0 1px 2px #000;flex:none;margin:0 6px}
+.slip{position:relative;background:var(--paper);color:var(--ink);margin:-4px 14px 12px;padding:12px 14px 10px;font-size:13px;line-height:1.5;flex:none}
+.slip::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:8px;
+  background:linear-gradient(-45deg,transparent 5px,var(--paper) 0) 0 0/10px 8px repeat-x,linear-gradient(45deg,transparent 5px,var(--paper) 0) 0 0/10px 8px repeat-x}
+.slip .hd{text-align:center;font-weight:700;letter-spacing:.12em}
+.slip hr{border:0;border-top:1px dashed var(--ink);margin:7px 0}
+.slip .note{color:var(--faint);font-size:12px}
+.slip .lbl{font-weight:700;letter-spacing:.08em;margin-top:2px}
+.slip ul{margin:2px 0 0;padding-left:16px}
+.row{display:flex;align-items:baseline;gap:6px}
+.row .dots{flex:1;border-bottom:1px dotted var(--faint);transform:translateY(-3px);min-width:10px}
+.row.total{font-weight:700}
+.stamp{color:var(--stamp);border:2px solid var(--stamp);border-radius:3px;padding:1px 6px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:inline-block;transform:rotate(-1.5deg);animation:hit .28s ease-out}
+@keyframes hit{from{transform:scale(1.7) rotate(-6deg);opacity:0}to{transform:rotate(-1.5deg);opacity:1}}
+@keyframes feed{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ticket,.stamp{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="strip" id="strip"><span id="when"></span><span id="tin"></span></div>
+  <div class="top" id="top"></div>
+  <div class="mid" id="mid"></div>
+  <div class="bot" id="bot"></div>
+</div>
+<script>
+/* ============================================================
+   THE PRICE · EX-05 Who Pays? · slide 20
+   A lamp stall, six months, one price a month. Everything a writer
+   may want to change is in CONFIG. Lines in "talk" and "says" are
+   character dialogue; everything else is narration.
+   All figures are illustrative.
+   ============================================================ */
+const CONFIG = {
+  months: 6, aloneMonths: 3,
+  startCash: 1000, lampCost: 100, stallCost: 400, loan: 1000,
+  prices: [90, 120, 160, 220],
+  queueDelay: 480,
+  target: "tight",
+  visitors: [
+    { id: "tight",       n: 12, max: 90,  who: "Shireen", about: "Her grandson writes matric this year." },
+    { id: "managing",    n: 6,  max: 160, who: "Bongani", about: "He drives a delivery van." },
+    { id: "comfortable", n: 2,  max: 250, who: "Elmarie", about: "She owns the hair salon." }
+  ],
+  // A line that starts with * is an action, not speech.
+  talk: {
+    alone: {
+      90:  { tight: ["Ninety I can do. He's been studying by candle.", "Still ninety? Then my neighbour is coming too.", "Ninety. Thank you for keeping it there."],
+             managing: ["I'll take one.", "Good price. I told the other drivers."],
+             comfortable: ["At that price? One for the salon.", "Cheaper than the shops. Lovely."] },
+      120: { tight: ["Not this month, my dear.", "A hundred and twenty. I can't."],
+             managing: ["Okay. One.", "Fair enough."],
+             comfortable: ["Fine.", "Yes, one."] },
+      160: { tight: ["*Reads the board and keeps walking.", "*Slows down, reads the board, walks on."],
+             managing: ["Yoh. Okay, one.", "It's a lot. But the kids need it."],
+             comfortable: ["It's a good lamp.", "One, please."] },
+      220: { tight: ["*Does not stop.", "*Looks at the board from across the road."],
+             managing: ["For a lamp? No.", "Two-twenty? I'll wait."],
+             comfortable: ["I suppose so.", "Pricey. Fine."] }
+    },
+    other:   { comfortable: ["I'll take the one that charges my phone.", "The charging one again. My stylist wants one."],
+               ravi: ["Six of the charging ones. Same again next month.", "Six more. They sell before lunch."] },
+    partner: { tight: ["Thirty a week I can find.", "Week three. Still paying.", "My neighbour signed up too."],
+               managing: ["Weekly works for me.", "Easier than one big amount."],
+               comfortable: ["I'll pay it off too, why not.", "Same plan as everyone. Fine."] },
+    sponsor: { tight: ["Ninety. Thank you.", "Ninety again. Bless that factory."],
+               managing: ["Whose name is that on the side?", "The paint people, hey? Okay."],
+               comfortable: ["One for the salon.", "Does it come without the logo?"] }
+  },
+  intro: {
+    title: "The stall",
+    body: [
+      "You sell rechargeable study lamps from a table outside the taxi rank.",
+      "Each lamp costs you R100. Running the stall costs R400 a month. The tin starts with R1 000.",
+      "Twenty families come past every month. You started this for the 12 on the tightest budgets.",
+      "Chalk up a price each month. Stay open for six months."
+    ],
+    small: "All figures are made up for this exercise.",
+    go: "Open the stall"
+  },
+  closed: {
+    title: "The tin is empty.",
+    body: "You cannot buy next month's lamps. The stall closes in month {m}.",
+    thandi: "Thandi sells airtime at the next table. She has watched your queue. She lends you R1 000 to start again, on one condition.",
+    says: "Don't try to carry it alone this time.",
+    go: "Take the loan"
+  },
+  door: {
+    title: "Three months in.",
+    body: "You know the problem now. Three people have noticed what you are doing. You can take one offer, and it stands.",
+    take: "Take this offer", back: "Back to the offers"
+  },
+  offers: [
+    { id: "other", who: "Ravi", about: "He runs three spaza shops.",
+      says: "Make me a lamp that charges a phone. My customers will pay R260.",
+      means: "You add a second, dearer lamp for people who can afford it. It costs you R150 and sells for R260. Ravi takes six a month. That profit can carry the basic lamp.",
+      paidBy: "other customers", premium: { n: 6, price: 260, cost: 150 } },
+    { id: "partner", who: "A mobile money company", about: "It lends small amounts by phone.",
+      says: "We pay you now. Your customers pay us R30 a week for five weeks.",
+      means: "The company pays you R125 for every lamp, up front. Every family can find R30 a week. The company collects the payments.",
+      paidBy: "the customer, with a partner", perLamp: 125, weekly: 30, weeks: 5 },
+    { id: "sponsor", who: "A paint factory", about: "It is down the road, and it has a community budget.",
+      says: "We will put R50 towards every lamp you sell to a family. Keep the price at R90. Our name goes on the lamp.",
+      means: "Families pay R90. The factory adds R50. You receive R140 a lamp.",
+      paidBy: "someone else", price: 90, topUp: 50 }
+  ],
+  events: {
+    ravi: {
+      title: "Month 5. Ravi has an offer.",
+      says: "I'll take every lamp you've got this month. R260 each. Cash.",
+      body: "Twenty charging lamps, sold in one day. The month would end R1 800 up. The queue would find an empty table.",
+      take: "Take it", decline: "Turn it down",
+      taken: "Shireen came back twice this month. The table was empty both times.",
+      declined: "Ravi shrugs. \u201cYour loss.\u201d The queue never knew.",
+      costTaken: "One month, the queue went home with nothing.",
+      costDeclined: "You said no to R1 800. You will be asked again.",
+      costPriced: "The dearer lamp paid the bills, and you still priced Shireen out for {n}."
+    },
+    missed: {
+      title: "Two families missed a week.",
+      body: "The company's rule is simple. Miss a payment and it collects the lamp. One of the two is Shireen.",
+      options: [
+        { id: "rules", label: "\u201cRules are rules.\u201d", out: "The company collects two lamps. Shireen's grandson is back to a candle.", reach: -2, cash: 0, cost: "Two families lost their lamps. One of them was Shireen." },
+        { id: "cover", label: "\u201cI will cover it.\u201d", out: "R60 from the tin. Nobody loses a lamp. The company says it cannot become a habit.", reach: 0, cash: -60, cost: "You paid R60 from the tin so that nobody lost a lamp." },
+        { id: "week",  label: "\u201cGive them one more week.\u201d", out: "The company agrees, once. Shireen pays. The other family cannot, and that lamp is collected.", reach: -1, cash: 0, cost: "One family lost its lamp." }
+      ],
+      always: "The families with the least paid the most: R150 each, in small pieces."
+    },
+    photos: {
+      title: "Month 5. The factory wants photographs.",
+      body: "One photograph of each family holding its lamp, for the annual report.",
+      options: [
+        { id: "yes",   label: "\u201cOf course.\u201d", out: "Most families smile for it. Shireen asks if she has to.", cost: "Every family posed with the factory's name to get a lamp." },
+        { id: "offer", label: "\u201cOnly if they offer.\u201d", out: "You send four photographs. The factory's reply is short.", cost: "You let families choose, and the factory noticed." }
+      ]
+    },
+    ended: {
+      title: "Month 6. The money has stopped.",
+      says: "Our budget year has ended. Next year's money is going to a sports day. It was a pleasure.",
+      body: "The R50 is gone. The price is yours to chalk again.",
+      cost: "The money stopped when someone else's year ended.",
+      held: "You held the price. At R90 the tin lasts {n}.",
+      raised: "In month 6 the families you started this for walked on again."
+    }
+  },
+  report: {
+    title: "Six months.",
+    head: "SIX MONTHS AT THE STALL",
+    reopened: "Closed in month {m}. Reopened with a loan.",
+    last: "On your own, the most anyone can reach is 24 of 72. You needed someone else to pay. Now you know what that someone costs.",
+    small: "All figures are made up for this exercise.",
+    next: "Then go to the next slide."
+  }
+};
+
+/* ---------------- engine ---------------- */
+const C = CONFIG;
+const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = id => document.getElementById(id);
+const S = { month: 0, cash: C.startCash, reach: 0, open: 0, closedIn: null, path: null, costs: [], priced: 0, used: {}, missedDone: false, endedPrice: null };
+const TARGET = C.visitors.find(v => v.id === C.target);
+const offer = id => C.offers.find(o => o.id === id);
+
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const k in (attrs || {})){
+    const v = attrs[k];
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v; else if (k === "text") el.textContent = v;
+    else if (k.slice(0, 2) === "on") el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid);
+  return el;
+}
+function add(el, ...kids){ for (const k of kids.flat(Infinity)) if (k !== null && k !== undefined && k !== false) el.append(k); }
+function R(n){ const a = String(Math.abs(n)).replace(/\B(?=(\d{3})+$)/g, " "); return (n < 0 ? "-R" : "R") + a; }
+function fill(s, o){ return s.replace(/\{(\w+)\}/g, (_, k) => o[k]); }
+function strip(label){ $("when").textContent = label; $("tin").textContent = "TIN " + (S.cash < 0 ? "EMPTY" : R(S.cash)); }
+function screen(label, title){
+  strip(label);
+  $("top").replaceChildren(); $("mid").replaceChildren(); $("bot").replaceChildren();
+  const h1 = h("h1", { tabindex: "-1", text: title });
+  add($("top"), h1); $("mid").scrollTop = 0; h1.focus({ preventScroll: true });
+}
+const P = text => h("p", { text: text });
+const go = (text, fn, id) => h("button", { class: "go", type: "button", id: id || "go", text: text, onclick: fn });
+const monthLabel = m => "MONTH " + m + " OF " + C.months;
+function line(key, list){ const i = (S.used[key] = (S.used[key] || 0) + 1) - 1; return list[i % list.length]; }
+function quote(who, about, text){
+  return h("div", { class: "ticket buys" }, h("div", {}, h("span", { class: "who", text: who }), about ? h("span", { class: "about", text: " " + about }) : null), h("span", {}), h("div", { class: "say", text: "“" + text + "”" }));
+}
+function row(a, b, cls){ return h("div", { class: "row" + (cls ? " " + cls : "") }, h("span", { text: a }), h("span", { class: "dots", "aria-hidden": "true" }), h("span", { text: b })); }
+function tell(){ try { window.parent.postMessage({ type: "ex05:price", payer: S.path, reached: S.reach, closed: S.closedIn !== null }, "*"); } catch (e) {} }
+
+/* the maths for one month */
+function compute(mode, price){
+  const L = C.lampCost; let rows, result, reach;
+  if (mode === "alone"){
+    const sold = C.visitors.filter(v => price <= v.max).reduce((a, v) => a + v.n, 0);
+    rows = [["LAMPS SOLD", String(sold)], ["MONEY IN", R(sold * price)], ["LAMPS", R(-sold * L)]];
+    result = sold * (price - L); reach = price <= TARGET.max ? TARGET.n : 0;
+  } else if (mode === "other"){
+    const pr = offer("other").premium;
+    const basic = C.visitors.filter(v => v.id !== "comfortable" && price <= v.max).reduce((a, v) => a + v.n, 0);
+    rows = [["BASIC LAMPS SOLD", String(basic)], ["CHARGING LAMPS SOLD", String(pr.n)], ["MONEY IN", R(basic * price + pr.n * pr.price)], ["LAMPS", R(-(basic * L + pr.n * pr.cost))]];
+    result = basic * (price - L) + pr.n * (pr.price - pr.cost); reach = price <= TARGET.max ? TARGET.n : 0;
+  } else if (mode === "deal"){
+    const pr = offer("other").premium, n = C.visitors.reduce((a, v) => a + v.n, 0);
+    rows = [["CHARGING LAMPS SOLD", String(n)], ["MONEY IN", R(n * pr.price)], ["LAMPS", R(-n * pr.cost)]];
+    result = n * (pr.price - pr.cost); reach = 0;
+  } else if (mode === "partner"){
+    const o = offer("partner"), n = C.visitors.reduce((a, v) => a + v.n, 0);
+    rows = [["LAMPS SOLD", String(n)], ["FROM THE COMPANY", R(n * o.perLamp)], ["LAMPS", R(-n * L)]];
+    result = n * (o.perLamp - L); reach = TARGET.n;
+  } else { // sponsor
+    const o = offer("sponsor"), n = C.visitors.reduce((a, v) => a + v.n, 0);
+    rows = [["LAMPS SOLD", String(n)], ["FROM FAMILIES", R(n * o.price)], ["FROM THE FACTORY", R(n * o.topUp)], ["LAMPS", R(-n * L)]];
+    result = n * (o.price + o.topUp - L); reach = TARGET.n;
+  }
+  rows.push(["STALL", R(-C.stallCost)]);
+  return { rows: rows, result: result - C.stallCost, reach: reach };
+}
+
+/* ---------------- screens ---------------- */
+function intro(){
+  screen("THE STALL", C.intro.title);
+  add($("mid"), C.intro.body.map(P), h("p", { class: "small", text: C.intro.small }));
+  add($("bot"), go(C.intro.go, () => startMonth(1)));
+}
+function startMonth(m){
+  S.month = m;
+  if (m <= C.aloneMonths) return chalk(m, "alone");
+  if (S.path === "other") return m === 5 ? raviOffer() : chalk(m, "other");
+  if (S.path === "partner") return fixed(m, "partner");
+  if (m === 5) return photos();
+  if (m === 6) return ended();
+  return fixed(m, "sponsor");
+}
+function board(mode, price){
+  if (mode === "partner"){ const o = offer("partner"); return h("div", { class: "board" }, h("div", { class: "what", text: "STUDY LAMPS" }), h("div", { class: "price", text: "R" + o.weekly + " A WEEK" }), h("div", { class: "also", text: "for " + o.weeks + " weeks" })); }
+  if (mode === "sponsor"){ const o = offer("sponsor"); return h("div", { class: "board" }, h("div", { class: "what", text: "STUDY LAMPS" }), h("div", { class: "price", text: R(o.price) }), h("div", { class: "also", text: "with the factory's name on the side" })); }
+  return h("div", { class: "board" }, h("div", { class: "what", text: mode === "other" ? "BASIC LAMP" : "STUDY LAMPS" }),
+    h("div", { class: "price", id: "chalked", text: price ? R(price) : "R ?" }),
+    mode === "other" ? h("div", { class: "also", text: "Charging lamp " + R(offer("other").premium.price) }) : null);
+}
+function chalk(m, mode, note){
+  screen(monthLabel(m), "Month " + m + ". " + (mode === "other" ? "Chalk up the basic lamp." : "Chalk up the price."));
+  add($("mid"), note ? P(note) : null, board(mode, null),
+    h("div", { class: "prices", role: "group", "aria-label": "Prices" }, C.prices.map(p => h("button", { type: "button", id: "price-" + p, text: R(p), onclick: () => queue(m, mode, p) }))));
+}
+function fixed(m, mode, note){
+  screen(monthLabel(m), "Month " + m + ".");
+  add($("mid"), note ? P(note) : null, board(mode));
+  add($("bot"), go("Open the stall", () => queue(m, mode, null)));
+}
+function queue(m, mode, price){
+  screen(monthLabel(m), "Month " + m + ". The queue.");
+  const tickets = C.visitors.map(v => {
+    let text, buys, tag;
+    if (mode === "partner"){ text = line("partner." + v.id, C.talk.partner[v.id]); buys = true; tag = "ON THE PLAN"; }
+    else if (mode === "sponsor"){ text = line("sponsor." + v.id, C.talk.sponsor[v.id]); buys = true; tag = "BUYS"; }
+    else if (mode === "other" && v.id === "comfortable"){ text = line("other.comfortable", C.talk.other.comfortable); buys = true; tag = "BUYS"; }
+    else { text = line("alone." + price + "." + v.id, C.talk.alone[price][v.id]); buys = price <= v.max; tag = buys ? "BUYS" : "WALKS ON"; }
+    const act = text.charAt(0) === "*";
+    return h("div", { class: "ticket" + (buys ? " buys" : "") },
+      h("div", {}, h("span", { class: "who", text: v.who }), h("span", { class: "about", text: " " + v.about })),
+      h("span", { class: "tag", text: tag }),
+      h("div", { class: "say" + (act ? " act" : ""), text: act ? text.slice(1) : "“" + text + "”" }));
+  });
+  if (mode === "other") tickets.push(h("div", { class: "ticket buys" },
+    h("div", {}, h("span", { class: "who", text: "Ravi" }), h("span", { class: "about", text: " " + offer("other").about })),
+    h("span", { class: "tag", text: "BUYS " + offer("other").premium.n }),
+    h("div", { class: "say", text: "“" + line("other.ravi", C.talk.other.ravi) + "”" })));
+  const btn = go("See the month", () => monthSlip(m, mode, price)); btn.disabled = true;
+  add($("mid"), board(mode, price)); add($("bot"), btn);
+  if (REDUCED){ tickets.forEach(t => add($("mid"), t)); btn.disabled = false; return; }
+  let i = 0;
+  (function step(){
+    if (i >= tickets.length){ btn.disabled = false; return; }
+    add($("mid"), tickets[i++]); $("mid").scrollTop = $("mid").scrollHeight; setTimeout(step, C.queueDelay);
+  })();
+}
+function monthSlip(m, mode, price, note){
+  const r = compute(mode, price);
+  S.cash += r.result; S.reach += r.reach; S.open += 1;
+  if (m > C.aloneMonths && S.path === "other" && r.reach === 0 && mode !== "deal") S.priced += 1;
+  if (m === 6 && S.path === "sponsor") S.endedPrice = price;
+  screen(monthLabel(m), "Month " + m + " is done.");
+  const slip = h("div", { class: "slip", id: "slip" }, h("div", { class: "hd", text: "MONTH " + m }), h("hr"),
+    r.rows.map(x => row(x[0], x[1])), h("hr"),
+    row("THIS MONTH", R(r.result), "total"), row("IN THE TIN", R(S.cash), "total"),
+    mode === "partner" ? h("div", { class: "note", text: "Each family pays the company " + R(offer("partner").weekly * offer("partner").weeks) + " in the end." }) : null);
+  add($("mid"), 
+    h("div", { class: "count", id: "count" }, "Families you started this for: reached ", h("b", { text: r.reach + " of " + TARGET.n }), " this month."),
+    h("div", { class: "slot", "aria-hidden": "true" }), slip, note ? P(note) : null);
+  add($("bot"), go(m === C.months ? "See the six months" : "Next", () => after(m)));
+}
+function after(m){
+  if (m <= C.aloneMonths && S.cash < 0) return closed(m);
+  if (m === C.aloneMonths) return door();
+  if (S.path === "partner" && m === 5 && !S.missedDone) return missed();
+  if (m === C.months) return report();
+  startMonth(m + 1);
+}
+function closed(m){
+  S.closedIn = m;
+  screen(monthLabel(m), C.closed.title);
+  add($("mid"), P(fill(C.closed.body, { m: m })), P(C.closed.thandi), quote("Thandi", "", C.closed.says));
+  add($("bot"), go(C.closed.go, () => { S.cash = C.loan; door(); }));
+}
+function door(){
+  screen("THE DOOR", C.door.title);
+  add($("mid"), P(C.door.body), C.offers.map(o => h("button", { class: "key offer", type: "button", id: "offer-" + o.id, onclick: () => offerDetail(o) },
+    h("div", {}, h("span", { class: "who", text: o.who }), h("span", { class: "about", text: " " + o.about })),
+    h("div", { class: "pitch", text: "“" + o.says + "”" }))));
+}
+function offerDetail(o){
+  screen("THE DOOR", o.who);
+  add($("mid"), h("div", { class: "detail" }, h("p", { class: "small", text: o.about }), P("“" + o.says + "”"), P(o.means), P("Paid by: " + o.paidBy + ".")));
+  add($("bot"), go(C.door.take, () => { S.path = o.id; startMonth(C.aloneMonths + 1); }, "take"),
+    h("button", { class: "key", type: "button", id: "back", style: "text-align:center", text: C.door.back, onclick: door }));
+}
+function choice(label, title, parts, options){
+  screen(label, title);
+  add($("mid"), parts, options.map(o => h("button", { class: "key", type: "button", id: "opt-" + o.id, text: o.label, onclick: o.fn })));
+}
+function outcome(label, title, text, next){
+  screen(label, title); add($("mid"), P(text)); add($("bot"), go("Next", next));
+}
+function raviOffer(){
+  const E = C.events.ravi;
+  choice(monthLabel(5), E.title, [quote("Ravi", "", E.says), P(E.body)], [
+    { id: "take", label: E.take, fn: () => { S.costs.push(E.costTaken); monthSlip(5, "deal", null, E.taken); } },
+    { id: "decline", label: E.decline, fn: () => { S.costs.push(E.costDeclined); chalk(5, "other", E.declined); } }
+  ]);
+}
+function missed(){
+  const E = C.events.missed; S.missedDone = true;
+  choice(monthLabel(5), E.title, [P(E.body)], E.options.map(o => ({ id: o.id, label: o.label, fn: () => {
+    S.reach += o.reach; S.cash += o.cash; S.costs.push(o.cost);
+    outcome(monthLabel(5), E.title, o.out, () => after(5));
+  } })));
+}
+function photos(){
+  const E = C.events.photos;
+  choice(monthLabel(5), E.title, [P(E.body)], E.options.map(o => ({ id: o.id, label: o.label, fn: () => { S.costs.push(o.cost); fixed(5, "sponsor", o.out); } })));
+}
+function ended(){
+  const E = C.events.ended;
+  screen(monthLabel(6), E.title);
+  add($("mid"), quote("The factory", "", E.says), P(E.body));
+  add($("bot"), go("Chalk up a price", () => chalk(6, "alone")));
+}
+function costLines(){
+  const out = S.costs.slice();
+  if (S.path === "other" && S.priced > 0) out.push(fill(C.events.ravi.costPriced, { n: S.priced === 1 ? "1 month" : S.priced + " months" }));
+  if (S.path === "partner") out.unshift(C.events.missed.always);
+  if (S.path === "sponsor"){
+    const E = C.events.ended; out.push(E.cost);
+    if (S.endedPrice <= TARGET.max){
+      const loss = -compute("alone", S.endedPrice).result, left = Math.floor(S.cash / loss);
+      out.push(fill(E.held, { n: left < 1 ? "less than one more month" : left === 1 ? "one more month" : left + " more months" }));
+    } else out.push(E.raised);
+  }
+  return out;
+}
+function report(){
+  const T = C.report, o = offer(S.path);
+  screen("SIX MONTHS", T.title);
+  const slip = h("div", { class: "slip", id: "slip" }, h("div", { class: "hd", text: T.head }), h("hr"),
+    row("MONTHS OPEN", String(S.open)),
+    S.closedIn ? h("div", { class: "note", text: fill(T.reopened, { m: S.closedIn }) }) : null,
+    row("IN THE TIN", R(S.cash)),
+    S.closedIn ? row("OWED TO THANDI", R(C.loan)) : null,
+    h("hr"),
+    h("div", { class: "lbl", text: "FAMILIES YOU STARTED THIS FOR" }),
+    row("REACHED", S.reach + " of " + TARGET.n * C.months, "total"),
+    h("hr"),
+    h("div", { class: "row", style: "align-items:center;flex-wrap:wrap" }, h("span", { class: "lbl", text: "PAID BY:" }), h("span", { class: "stamp", id: "stamp", text: o.paidBy })),
+    h("hr"),
+    h("div", { class: "lbl", text: "WHAT IT COST" }),
+    h("ul", { id: "costs" }, costLines().map(t => h("li", { text: t }))));
+  add($("mid"), h("div", { class: "slot", "aria-hidden": "true" }), slip, P(T.last), h("p", { class: "small", text: T.small }));
+  add($("bot"), h("p", { text: T.next }));
+  tell();
+}
+window.__state = S;
+intro();
+</script>
+</body>
+</html>
